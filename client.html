@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>MQTT client</title>
+  </head>
+  <body>
+      <label for="port">Port (default: 1884)</label><br>
+      <input type="number" id="port" name="port" value="1884"><br><br><br>
+      <label for="topic">Topic:</label><br>
+      <input type="text" id="topic" name="topic"><br>
+      <label for="min_temp">Minimal value:</label><br>
+      <input type="number" id="min_temp" name="min_temp" value="0"><br>
+      <label for="max_temp">Maximal value:</label><br>
+      <input type="number" id="max_temp" name="max_temp" value="0"><br>
+      <button type="button" onclick="new_topic()">Create a new topic</button>
+      <br><br><br>
+      <table id="clients">
+      </table>
+  </body>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script>
+    const base_url = 'tcp://localhost:';
+    const table = document.getElementById("clients");
+    const clients = new Map();
+
+    function new_topic () {
+	const topic = document.getElementById("topic").value;
+	const min_temp = +document.getElementById("min_temp").value;
+	const max_temp = +document.getElementById("max_temp").value;
+	const port = +document.getElementById("port").value;
+	if (topic === "") {
+	    alert("Topic is empty!");
+	    return;
+	}
+	if (min_temp > max_temp) {
+	    alert("Minimal value is greater than maximal value!");
+	    return;
+	}
+	if (clients.has(topic)) {
+	    clearInterval(clients.get(topic));
+	} else {
+	    const top = document.createElement("td");
+	    top.innerHTML=topic;
+	    const val = document.createElement("td");
+	    val.setAttribute("id", "id_" + topic);
+	    const line = document.createElement("tr");
+	    line.appendChild(top);
+	    line.appendChild(val);
+	    table.appendChild(line);
+	}
+
+	const val = document.getElementById("id_" + topic);
+
+	const options = {
+	    // Clean session
+	    clean: true,
+	    connectTimeout: 4000,
+	    // Authentication
+	    clientId: topic,
+	    username: topic,
+	    password: topic,
+	}
+
+	function msg() {
+	    const tmp = (Math.random() * (max_temp - min_temp) + min_temp).toString();
+	    val.innerHTML=tmp;
+	    client.publish(topic, tmp);
+	}
+
+	const client = mqtt.connect(base_url + port, options)
+	client.on('connect', function () {
+	    clients.set(topic, setInterval(msg, 500));
+	})
+    }
+  </script>
+</html>
