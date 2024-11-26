@@ -2,21 +2,41 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>MQTT client</title>
+    <title>MQTT publishers</title>
+    <link rel="stylesheet" href="style.css">
   </head>
   <body>
-      <label for="port">Port (default: 1884)</label><br>
-      <input type="number" id="port" name="port" value="1884"><br><br><br>
-      <label for="topic">Topic:</label><br>
-      <input type="text" id="topic" name="topic"><br>
-      <label for="min_temp">Minimal value:</label><br>
-      <input type="number" id="min_temp" name="min_temp" value="0"><br>
-      <label for="max_temp">Maximal value:</label><br>
-      <input type="number" id="max_temp" name="max_temp" value="0"><br>
-      <button type="button" onclick="new_topic()">Create a new topic</button>
-      <br><br><br>
-      <table id="clients">
-      </table>
+    <table>
+      <tr>
+	<td>
+	  <div>
+	    <label for="port">Port (default: 8000)</label><br>
+	    <input type="number" id="port" name="port" value="8000">
+	  </div>
+	  <div>
+	    <label for="topic">Topic:</label><br>
+	    <input type="text" id="topic" name="topic"><br>
+	    <label for="min_temp">Minimum value:</label><br>
+	    <input type="number" id="min_temp" name="min_temp" value="0"><br>
+	    <label for="max_temp">Maximum value:</label><br>
+	    <input type="number" id="max_temp" name="max_temp" value="0"><br>
+	    <button type="button" onclick="new_topic()">Create a new publisher</button>
+	  </div>
+	</td>
+	<td>
+	  <div>
+	    <table>
+	      <thead>
+		<th>Topic</th>
+		<th>Value</th>
+	      </thead>
+	      <tbody id="clients">
+	      </tbody>
+	    </table>
+	  </div>
+	</td>
+      </tr>
+    </table>
   </body>
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
   <script>
@@ -29,28 +49,6 @@
 	const min_temp = +document.getElementById("min_temp").value;
 	const max_temp = +document.getElementById("max_temp").value;
 	const port = +document.getElementById("port").value;
-	if (topic === "") {
-	    alert("Topic is empty!");
-	    return;
-	}
-	if (min_temp > max_temp) {
-	    alert("Minimal value is greater than maximal value!");
-	    return;
-	}
-	if (clients.has(topic)) {
-	    clearInterval(clients.get(topic));
-	} else {
-	    const top = document.createElement("td");
-	    top.innerHTML=topic;
-	    const val = document.createElement("td");
-	    val.setAttribute("id", "id_" + topic);
-	    const line = document.createElement("tr");
-	    line.appendChild(top);
-	    line.appendChild(val);
-	    table.appendChild(line);
-	}
-
-	const val = document.getElementById("id_" + topic);
 
 	const options = {
 	    // Clean session
@@ -59,19 +57,45 @@
 	    // Authentication
 	    clientId: topic,
 	    username: topic,
-	    password: topic,
+	    password: topic
 	}
 
-	function msg() {
-	    const tmp = (Math.random() * (max_temp - min_temp) + min_temp).toString();
-	    val.innerHTML=tmp;
-	    client.publish(topic, tmp);
+	function msg(val, client) {
+	    return function () {
+		const tmp = (Math.random() * (max_temp - min_temp) + min_temp).toFixed(2).toString();
+		val.innerHTML=tmp;
+		client.publish(topic, tmp);
+	    }
 	}
 
-	const client = mqtt.connect(base_url + port, options)
-	client.on('connect', function () {
-	    clients.set(topic, setInterval(msg, 500));
-	})
+	if (topic === "") {
+	    alert("Topic is empty!");
+	    return;
+	}
+	if (min_temp > max_temp) {
+	    alert("Minimum value is greater than maximum value!");
+	    return;
+	}
+	if (clients.has(topic)) {
+	    const [val, client, id] = clients.get(topic);
+	    clearInterval(id);
+	    const newid = setInterval(msg(val, client), 500);
+	    clients.set(topic, [val, client, newid]);
+	} else {
+	    const top = document.createElement("td");
+	    top.innerHTML=topic;
+	    const val = document.createElement("td");
+	    const line = document.createElement("tr");
+	    line.appendChild(top);
+	    line.appendChild(val);
+	    table.appendChild(line);
+
+	    const client = mqtt.connect(base_url + port, options);
+	    client.on('connect', function () {
+		const id = setInterval(msg(val, client), 500);
+		clients.set(topic, [val, client, id]);
+	    })
+	}
     }
   </script>
 </html>
