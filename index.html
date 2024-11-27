@@ -6,43 +6,121 @@
     <link rel="stylesheet" href="style.css">
   </head>
   <body>
-    <table>
-      <tr>
-	<td>
-	  <div>
-	    <label for="port">Port (default: 8000)</label><br>
-	    <input type="number" id="port" name="port" value="8000">
-	  </div>
-	  <div>
-	    <label for="topic">Topic:</label><br>
-	    <input type="text" id="topic" name="topic"><br>
-	    <label for="min_temp">Minimum value:</label><br>
-	    <input type="number" id="min_temp" name="min_temp" value="0"><br>
-	    <label for="max_temp">Maximum value:</label><br>
-	    <input type="number" id="max_temp" name="max_temp" value="0"><br>
-	    <button type="button" onclick="new_topic()">Create a new publisher</button>
-	  </div>
-	</td>
-	<td>
-	  <div>
-	    <table>
-	      <thead>
-		<th>Topic</th>
-		<th>Value</th>
-	      </thead>
-	      <tbody id="clients">
-	      </tbody>
-	    </table>
-	  </div>
-	</td>
-      </tr>
-    </table>
+    <header>
+      This simple MQTT client publishes and subscribe topic to a broker that runs on localhost. For pedagogical purpose only.<br><br>
+    </header>
+    <main>
+      <table>
+	<tbody>
+	  <tr>
+	    <td>
+	      Publishers
+	    </td>
+	    <td>
+	      <div>
+		<label for="port">Port (default: 8000)</label><br>
+		<input type="number" id="port" name="port" value="8000">
+	      </div>
+	      <div>
+		<label for="topic">Topic:</label><br>
+		<input type="text" id="topic" name="topic"><br>
+		<label for="min_temp">Minimum value:</label><br>
+		<input type="number" id="min_temp" name="min_temp" value="0"><br>
+		<label for="max_temp">Maximum value:</label><br>
+		<input type="number" id="max_temp" name="max_temp" value="0"><br>
+		<button type="button" onclick="new_topic()">Create a new publisher</button>
+	      </div>
+	    </td>
+	    <td>
+	      <div>
+		Publishers:
+		<table>
+		  <thead>
+		    <th>Topic</th>
+		    <th>Value</th>
+		  </thead>
+		  <tbody id="publishers">
+		  </tbody>
+		</table>
+	      </div>
+	    </td>
+	  </tr>
+	  <tr>
+	    <td>
+	      Subscribers
+	    </td>
+	    <td>
+	      <div>
+		<label for="port">Port (default: 8000)</label><br>
+		<input type="number" id="port2" name="port2" value="8000">
+	      </div>
+	      <div>
+		<label for="topic2">Topic:</label><br>
+		<input type="text" id="topic2" name="topic2"><br>
+		<button type="button" onclick="new_subscribe()">Create a new subscriber</button>
+	      </div>
+	    </td>
+	    <td>
+	      <div>
+		Subscribers:
+		<table>
+		  <thead>
+		    <th>Topic</th>
+		    <th>Value</th>
+		  </thead>
+		  <tbody id="subscribers">
+		  </tbody>
+		</table>
+	      </div>
+	    </td>
+	  </tr>
+	</tbody>
+      </table>
+    </main>
   </body>
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
   <script>
     const base_url = 'tcp://localhost:';
-    const table = document.getElementById("clients");
-    const clients = new Map();
+    const table = document.getElementById("publishers");
+    const table2 = document.getElementById("subscribers");
+    const publishers = new Map();
+    const subscribers = new Map();
+
+    function new_subscribe () {
+	const topic = document.getElementById("topic2").value;
+	const port = +document.getElementById("port2").value;
+
+	const options = {
+	    // Clean session
+	    clean: true,
+	    connectTimeout: 4000,
+	    // Authentication
+	    clientId: topic + "___2",
+	    username: topic + "___2",
+	    password: topic + "___2"
+	}
+	if (subscribers.has(topic)) return;
+	subscribers.set(topic,true);
+
+	if (topic === "") {
+	    alert("Topic is empty!");
+	    return;
+	}
+
+	const top = document.createElement("td");
+	top.innerHTML=topic;
+	const val = document.createElement("td");
+	const line = document.createElement("tr");
+	line.appendChild(top);
+	line.appendChild(val);
+	table2.appendChild(line);
+
+	const client = mqtt.connect(base_url + port, options);
+	client.subscribe(topic, function (err) { if (err) {alert("An error has occured."); } });
+	client.on('message', function (topic, message) {
+	    val.innerHTML = message.toString();
+	});
+    }
 
     function new_topic () {
 	const topic = document.getElementById("topic").value;
@@ -76,11 +154,11 @@
 	    alert("Minimum value is greater than maximum value!");
 	    return;
 	}
-	if (clients.has(topic)) {
-	    const [val, client, id] = clients.get(topic);
+	if (publishers.has(topic)) {
+	    const [val, client, id] = publishers.get(topic);
 	    clearInterval(id);
 	    const newid = setInterval(msg(val, client), 500);
-	    clients.set(topic, [val, client, newid]);
+	    publishers.set(topic, [val, client, newid]);
 	} else {
 	    const top = document.createElement("td");
 	    top.innerHTML=topic;
@@ -93,7 +171,7 @@
 	    const client = mqtt.connect(base_url + port, options);
 	    client.on('connect', function () {
 		const id = setInterval(msg(val, client), 500);
-		clients.set(topic, [val, client, id]);
+		publishers.set(topic, [val, client, id]);
 	    })
 	}
     }
