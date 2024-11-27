@@ -143,7 +143,8 @@
 		let tmp = (Math.random() + Number(val.innerHTML) - 0.5).toFixed(2);
 		if (tmp > max_temp) { tmp = max_temp; }
 		if (tmp < min_temp) { tmp = min_temp; }
-		val.innerHTML = tmp.toString();
+		tmp = tmp.toString();
+		val.innerHTML = tmp;
 		client.publish(topic, tmp);
 	    }
 	}
