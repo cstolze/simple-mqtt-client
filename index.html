@@ -140,8 +140,10 @@
 
 	function msg(val, client) {
 	    return function () {
-		const tmp = (Math.random() * (max_temp - min_temp) + min_temp).toFixed(2).toString();
-		val.innerHTML=tmp;
+		let tmp = (Math.random() + Number(val.innerHTML)).toFixed(2);
+		if (tmp > max_temp) { tmp = max_temp; }
+		if (tmp < min_temp) { tmp = min_temp; }
+		val.innerHTML = tmp.toString();
 		client.publish(topic, tmp);
 	    }
 	}
@@ -163,6 +165,8 @@
 	    const top = document.createElement("td");
 	    top.innerHTML=topic;
 	    const val = document.createElement("td");
+	    const tmp = (Math.random() * (max_temp - min_temp) + min_temp).toFixed(2).toString();
+	    val.innerHTML=tmp;
 	    const line = document.createElement("tr");
 	    line.appendChild(top);
 	    line.appendChild(val);
