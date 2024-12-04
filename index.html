@@ -166,7 +166,11 @@
 	client.subscribe(t, function (err) { if (err) {alert("An error has occured."); } });
 	client.on('message', function (topic, message) {
 	    if (topic === t) {
-		v.innerHTML = message;
+		if (String(Number(message)) === "NaN") {
+		    v.innerHTML = message;
+		} else {
+		    v.innerHTML = Number(message).toFixed(2);
+		}
 	    }
 	});
     }
