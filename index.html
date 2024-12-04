@@ -2,183 +2,173 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>MQTT publishers</title>
+    <title>Client MQTT</title>
     <link rel="stylesheet" href="style.css">
   </head>
   <body>
     <header>
-      This simple MQTT client publishes and subscribe topic to a broker that runs on localhost. For pedagogical purpose only.<br><br>
+      Ceci est un client MQTT simple qui tourne sur navigateur (de préférence Firefox). Uniquement pour usage pédagogique.<br><br><hr><br>
     </header>
     <main>
-      <table>
-	<tbody>
-	  <tr>
-	    <td>
-	      Publishers
-	    </td>
-	    <td>
-	      <div>
-		<label for="port">Port (default: 8000)</label><br>
-		<input type="number" id="port" name="port" value="8000">
-	      </div>
-	      <div>
-		<label for="topic">Topic:</label><br>
-		<input type="text" id="topic" name="topic"><br>
-		<label for="min_temp">Minimum value:</label><br>
-		<input type="number" id="min_temp" name="min_temp" value="0"><br>
-		<label for="max_temp">Maximum value:</label><br>
-		<input type="number" id="max_temp" name="max_temp" value="0"><br>
-		<button type="button" onclick="new_topic()">Create a new publisher</button>
-	      </div>
-	    </td>
-	    <td>
-	      <div>
-		Publishers:
-		<table>
-		  <thead>
-		    <th>Topic</th>
-		    <th>Value</th>
-		  </thead>
-		  <tbody id="publishers">
-		  </tbody>
-		</table>
-	      </div>
-	    </td>
-	  </tr>
-	  <tr>
-	    <td>
-	      Subscribers
-	    </td>
-	    <td>
-	      <div>
-		<label for="port">Port (default: 8000)</label><br>
-		<input type="number" id="port2" name="port2" value="8000">
-	      </div>
-	      <div>
-		<label for="topic2">Topic:</label><br>
-		<input type="text" id="topic2" name="topic2"><br>
-		<button type="button" onclick="new_subscribe()">Create a new subscriber</button>
-	      </div>
-	    </td>
-	    <td>
-	      <div>
-		Subscribers:
-		<table>
-		  <thead>
-		    <th>Topic</th>
-		    <th>Value</th>
-		  </thead>
-		  <tbody id="subscribers">
-		  </tbody>
-		</table>
-	      </div>
-	    </td>
-	  </tr>
-	</tbody>
-      </table>
+      <div>
+	<label for="broker">Adresse du broker (défaut: ws://localhost:8000)</label><br>
+	<input type="text" id="broker" name="broker" value="ws://localhost:8000"><br>
+	<span id="connected">En attente de connection...</span><br><br><hr><br>
+	Publier un message<br>
+	<label for="topic">Pour le topic :</label>
+	<input type="text" id="topic" name="topic"><br>
+	<label for"message">Message :</label>
+	<select name="msg-type" id="msg-type" onclick="choice(this.value)">>
+	  <option value="simple">Message simple</option>
+	  <option value="random">Faux capteur</option>
+	</select><br>
+	<span id="msg-chosen" style="display:none"><label for="msg">Contenu du message : </label><input type="text" id="msg" name="msg"><br></span>
+	<span id="random-chosen" style="display:none"><label for="val-init">Nombre de départ : </label><input type="number" id="val-init" name="val-init"><br>
+	<label for="tick">Mettre à jour tous les : </label><input type="number" id="tick" name="tick"> dixièmes de seconde<br></span>
+	<button type="button" onclick="new_publish()">Publish</button><br><br><hr><br>
+	<label for="subscribe">Souscrire à un topic :</label><br><input type="text" id="subscribe" name="subscribe"><br>
+	<button type="button" onclick="new_subscribe()">Subscribe</button><br><br><hr><br>
+	Faux capteurs :
+	<table>
+	  <thead>
+	    <th>Topic</th>
+	    <th>Dernière valeur</th>
+	  </thead>
+	  <tbody id="sensors">
+	  </tbody>
+	</table><br>
+	Topic souscrits:
+	<table>
+	  <thead>
+	    <th>Topic</th>
+	    <th>Dernière valeur</th>
+	  </thead>
+	  <tbody id="subscriptions">
+	  </tbody>
+	</table>
+      </div>
     </main>
   </body>
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
   <script>
-    const base_url = 'tcp://localhost:';
-    const table = document.getElementById("publishers");
-    const table2 = document.getElementById("subscribers");
+    const options = {
+	// Clean session
+	clean: true,
+	connectTimeout: 4000,
+	// Authentication
+	clientId: "JavaScript-client",
+	username: "jsclient",
+	password: "password"
+    }
+
+    const broker = document.getElementById("broker");
+    const connect_span = document.getElementById("connected");
+
+    const msgType = document.getElementById("msg-type")
+    const msgChosen = document.getElementById("msg-chosen");
+    const randomChosen = document.getElementById("random-chosen");
+    const topic = document.getElementById("topic");
+    const msg = document.getElementById("msg");
+    const valInit = document.getElementById("val-init");
+    const tick = document.getElementById("tick");
+    const sensorList = document.getElementById("sensors");
+    const subscriptionList = document.getElementById("subscriptions");
+
     const publishers = new Map();
     const subscribers = new Map();
+    const client = mqtt.connect(broker.value, options);
 
-    function new_subscribe () {
-	const topic = document.getElementById("topic2").value;
-	const port = +document.getElementById("port2").value;
+    client.on('close', function () {
+	connect_span.innerHTML = "En attente de connection...";
+    });
+    client.on('connect', function () {
+	connect_span.innerHTML = "Connection réussie !";
+    });
 
-	const options = {
-	    // Clean session
-	    clean: true,
-	    connectTimeout: 4000,
-	    // Authentication
-	    clientId: topic + "___2",
-	    username: topic + "___2",
-	    password: topic + "___2"
+    function choice(c) {
+	if (c === "simple") {
+	    msgChosen.style.display = "inherit";
+	    randomChosen.style.display = "none";
+	} else {
+	    msgChosen.style.display = "none";
+	    randomChosen.style.display = "inherit";
 	}
-	if (subscribers.has(topic)) return;
-	subscribers.set(topic,true);
+    }
+    choice(msgType.value);
 
-	if (topic === "") {
-	    alert("Topic is empty!");
-	    return;
-	}
-
+    function createLine (t, but_msg, ev, tab) {
 	const top = document.createElement("td");
-	top.innerHTML=topic;
+	top.innerHTML= t;
 	const val = document.createElement("td");
+	const but = document.createElement("button");
+	but.innerHTML = but_msg;
+	const del = document.createElement("td");
+	del.appendChild(but);
 	const line = document.createElement("tr");
 	line.appendChild(top);
 	line.appendChild(val);
-	table2.appendChild(line);
+	line.appendChild(del);
+	tab.appendChild(line);
 
-	const client = mqtt.connect(base_url + port, options);
-	client.subscribe(topic, function (err) { if (err) {alert("An error has occured."); } });
-	client.on('message', function (topic, message) {
-	    val.innerHTML = message.toString();
-	});
+	but.addEventListener("click", ev(line));
+	return val;
     }
 
-    function new_topic () {
-	const topic = document.getElementById("topic").value;
-	const min_temp = +document.getElementById("min_temp").value;
-	const max_temp = +document.getElementById("max_temp").value;
-	const port = +document.getElementById("port").value;
-
-	const options = {
-	    // Clean session
-	    clean: true,
-	    connectTimeout: 4000,
-	    // Authentication
-	    clientId: topic + "___1",
-	    username: topic + "___1",
-	    password: topic + "___1"
+    function gauss () {
+	let res = 0;
+	for (let i = 0; i < 1000; i++) {
+	    res += Math.random()-0.5;
 	}
+	return res / 10;
+    }
 
-	function msg(val, client) {
-	    return function () {
-		let tmp = (Math.random() + Number(val.innerHTML) - 0.5).toFixed(2);
-		if (tmp > max_temp) { tmp = max_temp; }
-		if (tmp < min_temp) { tmp = min_temp; }
-		tmp = tmp.toString();
-		val.innerHTML = tmp;
-		client.publish(topic, tmp);
+    function new_publish() {
+	const t = topic.value;
+	if (msgType.value === "simple") {
+	    client.publish(t, msg.value);
+	} else {
+	    let val = Number(valInit.value);
+	    const time = tick.value;
+
+	    if (val !== "" && time > 0) {
+		const v = createLine(t, "Effacer ce faux capteur", delete_me, sensorList);
+		function fake_sensor() {
+		    val += gauss() / time;
+		    const tmp = val.toFixed(2);
+		    v.innerHTML = tmp;
+		    client.publish(t, tmp);
+		}
+		const i = setInterval(fake_sensor, time*100);
+		function delete_me(line) {
+		    return function () {
+			sensorList.removeChild(line);
+			clearInterval(i);
+		    };
+		}
+
+	    } else {
+		alert("Données incorrectes");
 	    }
 	}
+    }
 
-	if (topic === "") {
-	    alert("Topic is empty!");
-	    return;
-	}
-	if (min_temp > max_temp) {
-	    alert("Minimum value is greater than maximum value!");
-	    return;
-	}
-	if (publishers.has(topic)) {
-	    const [val, client, id] = publishers.get(topic);
-	    clearInterval(id);
-	    const newid = setInterval(msg(val, client), 500);
-	    publishers.set(topic, [val, client, newid]);
-	} else {
-	    const top = document.createElement("td");
-	    top.innerHTML=topic;
-	    const val = document.createElement("td");
-	    const tmp = (Math.random() * (max_temp - min_temp) + min_temp).toFixed(2).toString();
-	    val.innerHTML=tmp;
-	    const line = document.createElement("tr");
-	    line.appendChild(top);
-	    line.appendChild(val);
-	    table.appendChild(line);
+    function new_subscribe() {
+	const t = subscribe.value;
 
-	    const client = mqtt.connect(base_url + port, options);
-	    client.on('connect', function () {
-		const id = setInterval(msg(val, client), 500);
-		publishers.set(topic, [val, client, id]);
-	    })
+	function delete_me(line) {
+	    return function () {
+		subscriptionList.removeChild(line);
+		client.unsubscribe(t, function (err) { if (err) {alert("An error has occured."); } });
+	    };
 	}
+
+	const v = createLine(t, "Unsubscribe", delete_me, subscriptionList);
+	client.subscribe(t, function (err) { if (err) {alert("An error has occured."); } });
+	client.on('message', function (topic, message) {
+	    if (topic === t) {
+		v.innerHTML = message;
+	    }
+	});
     }
   </script>
 </html>
